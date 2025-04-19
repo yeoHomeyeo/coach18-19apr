@@ -1,0 +1,45 @@
+name: Build and Push Upload Service
+
+on:
+  push:
+    paths:
+      - 'flask-s3-service/**'
+      - 'Dockerfile' # If your main Dockerfile is in the root
+      - 'requirements.txt' # Or any common dependency file
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'flask-s3-service/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+  ECR_REPOSITORY: ${{ env.ECR_REGISTRY }}/file-message-ecs-upload-service
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t "${{ env.ECR_REPOSITORY }}:latest" -f upload_service/Dockerfile upload_service/
+          docker push "${{ env.ECR_REPOSITORY }}:latest"
